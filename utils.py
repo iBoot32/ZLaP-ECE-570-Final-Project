@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 
 def search_faiss(X, Q, k):
-    # X is the dataset, Q is the query set
+    # X is the dataset, Q is the query set, k is the number of nearest neighbors to retrieve
     s, knn = faiss.knn(X, Q, k, metric=faiss.METRIC_INNER_PRODUCT)
     return knn, s
 

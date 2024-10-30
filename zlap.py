@@ -5,8 +5,21 @@ import clip
 from torchvision import datasets
 import matplotlib.pyplot as plt
 from utils import *
+from argparse import ArgumentParser
 
 model, preprocess = clip.load("RN50", device="cpu")
+
+# Combine image and text classifiers knn and similarity scores
+#  1. Shift the image knn by the number of classes (avoid overlap)
+#  2. Concatenate image and text knn and sim
+#  3. Return the concatenated knn and sim
+def combine_separate_knns(knn_im2im, sim_im2im, knn_im2text, sim_im2text, num_classes):
+    knn_im = knn_im2im + num_classes
+    
+    # concat along the columns
+    knn = np.concatenate((knn_im, knn_im2text), axis=1)
+    sim = np.concatenate((sim_im2im, sim_im2text), axis=1)
+    return knn, sim
 
 def encode_image(image):
     with torch.no_grad():
@@ -29,58 +42,20 @@ def construct_label_graph(features, clf, k=5):
     print(f'knn_im2im: {knn_im2im.shape} and {knn_im2im}')
     print(f'sim_im2im: {sim_im2im.shape} and {sim_im2im}')
 
-
-
 if __name__ == '__main__':
+    parser = ArgumentParser(description='ZLAP')
+    parser.add_argument('--k', type=int, default=5, help='Number of nearest neighbors to retrieve')
+    parser.add_argument('--mode', type=str, default='transductive', choices=['transductive', 'inductive'], help='Transductive or Inductive mode')
+    args = parser.parse_args()
 
-    print("starting...")
+    k = args.k
+    mode = args.mode
 
     # Load data
     try:
         data = get_data()
     except OSError:
         print("Error loading data")
-
-
-    # features, classes = load_data()
-    # dataloader = datasets.Caltech101(root='data', download=True, transform=preprocess)
-
-    # # FAISS is built on "indexes" which are used to store and query the data
-    # # Create an index using FAISS, using shape[1] (columns) as the dimensionality 
-    # index = faiss.IndexFlatL2(features.shape[1])
-    # index.add(features)
-
-    # construct_label_graph(features, classes, 5)
-
-    # # random number 0-10000
-    # query = np.random.randint(0, 5000)
-    # query_feature = get_query_image(query)
-
-    # # Search for the nearest neighbors of the query image
-    # D, I = index.search(query_feature, 5)
-
-    # # print distances and indexes
-    # print(D)
-    # print(I)
-
-    # # show original image
-    # img, _class = dataloader[query]
-    # idx_to_class = {i: category for i, category in enumerate(dataloader.categories)}
-    # img = img.permute(1, 2, 0).numpy()
-    # plt.imshow(img)
-    # plt.title(f"ORIGINAL class: {idx_to_class[_class]} with image idx {query}")
-    # plt.show()
-
-
-    # for z in range(5):
-    #     img, _class = dataloader[classes[I[0][z]]]
-    #     idx_to_class = {i: category for i, category in enumerate(dataloader.categories)}
-
-    #     img = img.permute(1, 2, 0).numpy()
-    #     plt.imshow(img)
-    #     plt.title(f"Predicted class: {idx_to_class[_class]} with image idx {_class}")
-    #     plt.show()
-
 
 
        
