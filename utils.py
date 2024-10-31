@@ -172,6 +172,7 @@ def normalize_connection_graph(graph):
     return graph_normalized
 
 # Used in transductive inference, we solve linear system Lx=Y via conjugate gradient method
+# Reasoning given in paper as it's faster than other iterative methods
 # L is the Laplacian matrix and Y is the target matrix
 def conj_gradsearch(L, Y, tol=1e-6, maxiter=50):
     x, _ = sparse.linalg.cg(L, Y, tol=tol, maxiter=maxiter)

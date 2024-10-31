@@ -42,6 +42,30 @@ def construct_label_graph(features, clf, k=5):
     print(f'knn_im2im: {knn_im2im.shape} and {knn_im2im}')
     print(f'sim_im2im: {sim_im2im.shape} and {sim_im2im}')
 
+
+
+# performs image_to_image and image_to_text search
+# features: each row is a feature vector for an image
+# clf: each row is a class vector for an image
+def create_separate_graph(features, clf, k):
+    num_classes = clf.shape[0]
+
+    # We now use FAISS to search for the nearest neighbors of the features 
+    # if k is greater than the number of features or classes, we set k to them
+    knn_im2im, sim_im2im = search_faiss(features, features, k=min(k, features.shape[0]))
+    knn_im2text, sim_im2text = search_faiss(features, clf, k=min(k, num_classes))
+
+    knn, sim = combine_separate_knns(knn_im2im, sim_im2im, knn_im2text, sim_im2text, num_classes)
+
+    # We now init knn for knn to -1 as a placeholder since we not valid, and sim to 0
+    knn_text = np.full((num_classes, knn.shape[1]), -1)
+    sim_text = np.zeros((num_classes, sim.shape[1]))
+    knn = np.concatenate((knn, knn_text), axis=0)
+    sim = np.concatenate((sim, sim_text), axis=0)
+
+    return knn, sim
+
+
 if __name__ == '__main__':
     parser = ArgumentParser(description='ZLAP')
     parser.add_argument('--k', type=int, default=5, help='Number of nearest neighbors to retrieve')
