@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from utils import *
 from argparse import ArgumentParser
 
-model, preprocess = clip.load("RN50", device="cpu")
+# model, preprocess = clip.load("RN50", device="cpu")
 
 # Combine image and text classifiers knn and similarity scores
 #  1. Shift the image knn by the number of classes (avoid overlap)
@@ -21,26 +21,26 @@ def combine_separate_knns(knn_im2im, sim_im2im, knn_im2text, sim_im2text, num_cl
     sim = np.concatenate((sim_im2im, sim_im2text), axis=1)
     return knn, sim
 
-def encode_image(image):
-    with torch.no_grad():
-        image_features = model.encode_image(image) # (1, 512) tensor
-        image_features /= image_features.norm(dim=-1, keepdim=True) # Normalize features
-    return image_features
+# def encode_image(image):
+#     with torch.no_grad():
+#         image_features = model.encode_image(image) # (1, 512) tensor
+#         image_features /= image_features.norm(dim=-1, keepdim=True) # Normalize features
+#     return image_features
 
-def get_query_image(query):
-    query_image = dataloader[query][0]
-    query_image = query_image.unsqueeze(0) # Add batch dimension
-    query_feature = model.encode_image(query_image)
-    query_feature /= query_feature.norm(dim=-1, keepdim=True)
-    query_feature = query_feature.detach().numpy()
-    return query_feature
+# def get_query_image(query):
+#     query_image = dataloader[query][0]
+#     query_image = query_image.unsqueeze(0) # Add batch dimension
+#     query_feature = model.encode_image(query_image)
+#     query_feature /= query_feature.norm(dim=-1, keepdim=True)
+#     query_feature = query_feature.detach().numpy()
+#     return query_feature
 
-def construct_label_graph(features, clf, k=5):
-    # Start by searching for the nearest neighbors of the features (im2im)
-    knn_im2im, sim_im2im = search_faiss(features, features, k=k)
+# def construct_label_graph(features, clf, k=5):
+#     # Start by searching for the nearest neighbors of the features (im2im)
+#     knn_im2im, sim_im2im = search_faiss(features, features, k=k)
 
-    print(f'knn_im2im: {knn_im2im.shape} and {knn_im2im}')
-    print(f'sim_im2im: {sim_im2im.shape} and {sim_im2im}')
+#     print(f'knn_im2im: {knn_im2im.shape} and {knn_im2im}')
+#     print(f'sim_im2im: {sim_im2im.shape} and {sim_im2im}')
 
 
 
@@ -86,6 +86,8 @@ def do_transductive_lp(features, clf, k, gamma, alpha, scale_sim=False):
 
         # store results in correct column for class i
         scores[:, i] = x[num_classes:]
+    
+    return scores
 
 # find nearest neighbors between test and unlabeled features and class labels
 def get_neighbors_for_inductive(unlabeled_features, clf, test_features, k, gamma, scale_sim=False, xmin=None, xmax=None):
@@ -130,7 +132,7 @@ def do_inductive_lp(unlabeled_features, clf, test_features, k, gamma, alpha):
         x = conj_gradsearch(laplacian, Y)
         scores[idx, :] = x[:num_classes]
 
-    return scores.get()
+    return scores
 
 def get_Linv(features, clf, k, gamma, alpha):
     num_classes = clf.shape[0]
@@ -152,7 +154,7 @@ def get_Linv(features, clf, k, gamma, alpha):
         x = conj_gradsearch(laplacian, Y)
         scores[:, i] = x
 
-    return scores.get()
+    return scores
 
 def do_sparse_inductive_lp(unlabeled_features, clf, test_features, k, gamma, alpha):
     num_classes = clf.shape[0]
@@ -166,7 +168,7 @@ def do_sparse_inductive_lp(unlabeled_features, clf, test_features, k, gamma, alp
     Linv_sparse = np.zeros_like(L_inv)
     top = np.argmax(L_inv, axis=1, keepdims=True)
     np.put_along_axis(Linv_sparse, top, np.take_along_axis(L_inv, top, axis=1), axis=1)
-    L_inv_sparse = csr_matrix(Linv_sparse)
+    Linv_sparse = csr_matrix(Linv_sparse)
 
     # scores for unlabeled features
     # below block of code is given from original implementation due to complexity
@@ -176,7 +178,7 @@ def do_sparse_inductive_lp(unlabeled_features, clf, test_features, k, gamma, alp
         Z.data = Z.data * s.repeat(np.diff(Z.indptr).get().tolist())
         scores[idx, :] = Z.sum(axis=0)
 
-    return scores.get()
+    return scores
 
 
 
@@ -184,23 +186,74 @@ if __name__ == '__main__':
     parser = ArgumentParser(description='ZLAP')
     parser.add_argument('--k', type=int, default=5, help='Number of nearest neighbors to retrieve')
     parser.add_argument('--mode', type=str, default='transductive', choices=['transductive', 'inductive'], help='Transductive or Inductive mode')
-    args = parser.parse_args()
+    parser.add_argument("--gamma", type=float, default=5.0)
+    parser.add_argument("--alpha", type=float, default=0.3)
+    parser.add_argument("--clf_type", type=str, default="text", choices=["text", "proxy", "cupl-text", "cupl-proxy"])
 
+    args = parser.parse_args()
     k = args.k
     mode = args.mode
+    gamma = args.gamma
+    alpha = args.alpha
+    clf_type = args.clf_type
 
     print(f'  [*] Running ZLaP in {mode} mode with k={k}')
 
-
-
-    
-
-
     # Load data
     try:
-        data = get_data()
-    except OSError:
-        print("Error loading data")
+        (
+            train_features,
+            train_targets,
+            val_features,
+            val_targets,
+            test_features,
+            test_targets,
+            clf_text,
+            clf_image_train,
+            clf_image_val,
+            clf_image_test,
+            clf_cupl_text,
+            clf_cupl_image_train,
+            clf_cupl_image_val,
+            clf_cupl_image_test
+        ) = get_data()
+    except Exception as e:
+        print(f'  [!] Error reading datafiles: {e}')
+        exit(1)
+
+    # default class data to use
+    if args.clf_type == "text":
+        clf_to_use = clf_text
+
+    # if we we are doing transductive learning:
+    if args.mode == "transductive":
+        if args.clf_type == "proxy":
+            clf_to_use = clf_image_test
+        elif args.clf_type == "cupl-proxy":
+            clf_to_use = clf_cupl_image_test
+
+        scores = do_transductive_lp(test_features, clf_to_use, args.k, args.gamma, args.alpha)
+
+    # if we are doing inductive:
+    elif args.mode == "inductive":
+        if args.clf_type == "proxy":
+            clf_to_use = clf_image_train
+        elif args.clf_type == "cupl-proxy":
+            clf_to_use = clf_cupl_image_train
+
+        scores = do_inductive_lp(train_features, clf_to_use, test_features, args.k, args.gamma, args.alpha)
+
+    # if we are doing sparse inductive learning:
+    elif args.mode == "sparse-inductive":
+        if args.clf_type == "proxy":
+            clf_to_use = clf_image_train
+        elif args.clf_type == "cupl-proxy":
+            clf_to_use = clf_cupl_image_train
+
+        scores = do_sparse_inductive_lp(train_features, clf_to_use, test_features, args.k, args.gamma, args.alpha)
+
+    acc = accuracy(scores, test_targets)
+    print(f"Caltech101 {clf_type} classifier accuracy: {acc:.2f}%")
 
 
        

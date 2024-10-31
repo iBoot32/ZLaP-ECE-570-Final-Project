@@ -18,7 +18,8 @@ def knn_to_laplacian(knn, sim, alpha=0.99):
     row_idx_rep = row_idx_rep.flatten("F")
 
     # filter out -1 indices
-    knn = knn[knn != -1]
+    knn = np.where(knn != -1, knn, 0)
+
     row_idx_rep = row_idx_rep[knn != -1]
     sim = sim[knn != -1]
 
@@ -46,7 +47,8 @@ def normalize(x):
 
 def accuracy(scores, labels):
     # argmax of scores is the predicted label (one prediction per row)
-    return np.mean(100 * np.argmax(scores, axis=1) == labels)
+    acc = np.mean(100.0 * (np.argmax(scores, axis=1) == labels))
+    return acc
 
 def get_data():
     base_path = "zlap_features/features/caltech101"
@@ -176,4 +178,4 @@ def normalize_connection_graph(graph):
 # L is the Laplacian matrix and Y is the target matrix
 def conj_gradsearch(L, Y, tol=1e-6, maxiter=50):
     x, _ = sparse.linalg.cg(L, Y, tol=tol, maxiter=maxiter)
-    return np.asnumpy(x)
+    return x
