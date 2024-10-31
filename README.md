@@ -20,9 +20,9 @@ I created a plan/order for function implementation based on their simplicity and
 |                    | voc_ap                          | ✔️         | Oct 29, 2024            |
 |                    | voc_mAP                         | ✔️         | Oct 29, 2024            |
 |                    | search_faiss                    | ✔️         | Oct 29, 2024            |
-|                    | normalize connection graph      | ⬜         |                         |
-|                    | laplacian                       | ⬜         |                         |
-|                    | dfs                             | ⬜         |                         |
+|                    | normalize connection graph      | ✔️         | Oct 30, 2024        |
+|                    | laplacian                       | ✔️         | Oct 30, 2024         |
+|                    | dfs                             | ✔️         | Oct 30, 2024         |
 | **Main Functions** | get_args                        | ✔️         | Oct 29, 2024            |
 |                    | combine_separate_knns           | ✔️         | Oct 29, 2024            |
 |                    | create_separate_graph           | ⬜         |                         |
