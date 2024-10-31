@@ -28,9 +28,9 @@ I created a plan/order for function implementation based on their simplicity and
 |                    | create_separate_graph           | ✔️         | Oct 31, 2024               |
 |                    | do_transductive_lp              | ✔️         | Oct 31, 2024               |
 |                    | get_neighbors_for_inductive     | ✔️        | Oct 31, 2024           |
-|                    | do_inductive_lp                 | ⬜         |                         |
-|                    | get_Linv                        | ⬜         |                         |
-|                    | do_sparse_inductive_lp          | ⬜         |                         |
+|                    | do_inductive_lp                 | ✔️         | Oct 31, 2024             |
+|                    | get_Linv                        | ✔️         | Oct 31, 2024            |
+|                    | do_sparse_inductive_lp          | ✔️         | Oct 31, 2024            |
 |                    | main                            | ⬜         |                         |
 | **Expansions**     | Train on custom data            | ⬜         |                         |
 |                    | Evaluate on retail data         | ⬜         |                         |

@@ -91,8 +91,8 @@ def do_transductive_lp(features, clf, k, gamma, alpha, scale_sim=False):
 def get_neighbors_for_inductive(unlabeled_features, clf, test_features, k, gamma, scale_sim=False, xmin=None, xmax=None):
     num_classes = clf.shape[0]
 
-    # searches using faiss (im2im and im2text)
-    knn_im2im, sim_im2im     = search_faiss(unlabeled_features, unlabeled_features, k=min(k, unlabeled_features.shape[0]))
+    # searches using faiss (im2im and im2text) between unlabeled and test features, then unlabeld and clf
+    knn_im2im, sim_im2im     = search_faiss(unlabeled_features, test_features, k=min(k, unlabeled_features.shape[0]))
     knn_im2text, sim_im2text = search_faiss(unlabeled_features, clf, k=min(k, num_classes))
 
     # remove entries < 0 
@@ -107,6 +107,77 @@ def get_neighbors_for_inductive(unlabeled_features, clf, test_features, k, gamma
     test_knn = np.concatenate((knn_im2im, knn_im2text), axis=1)
     test_sim = np.concatenate((sim_im2im, sim_im2text), axis=1)
     return test_knn, test_sim
+
+def do_inductive_lp(unlabeled_features, clf, test_features, k, gamma, alpha):
+    num_classes = clf.shape[0]
+
+    # im2im and im2text search for unlabeled and class labels
+    knn, sim = create_separate_graph(unlabeled_features, clf, k)
+
+    # gamma scaling for sim: all sim entries with knn < num_classes are scaled by gamma
+    sim[knn < num_classes] = sim[knn < num_classes] ** gamma
+
+    # Get Laplacian and find nearest neighbors between test and unlabeled features and class labels
+    laplacian = knn_to_laplacian(knn, sim, alpha)
+    test_knn, test_sim = get_neighbors_for_inductive(unlabeled_features, clf, test_features, k, gamma)
+
+    # scores for unlabeled features
+    scores = np.zeros((unlabeled_features.shape[0], num_classes))
+    for idx, (k, s) in enumerate(zip(test_knn, test_sim)):
+        # one-hot encoding where the ith class is "s"
+        Y = np.zeros((laplacian.shape[0],))
+        Y[k] = s
+        x = conj_gradsearch(laplacian, Y)
+        scores[idx, :] = x[:num_classes]
+
+    return scores.get()
+
+def get_Linv(features, clf, k, gamma, alpha):
+    num_classes = clf.shape[0]
+
+    # im2im and im2text search for features and class labels
+    knn, sim = create_separate_graph(features, clf, k)
+
+    # gamma scaling for sim: all sim entries with knn < num_classes are scaled by gamma
+    sim[knn < num_classes] = sim[knn < num_classes] ** gamma
+
+    # Get Laplacian
+    laplacian = knn_to_laplacian(knn, sim, alpha)
+
+    scores = np.zeros((num_classes + features.shape[0], num_classes))
+    for i in range(num_classes):
+        # one-hot encoding where the ith class is 1, then solve for the ith class
+        Y = np.zeros((laplacian.shape[0],))
+        Y[i] = 1
+        x = conj_gradsearch(laplacian, Y)
+        scores[:, i] = x
+
+    return scores.get()
+
+def do_sparse_inductive_lp(unlabeled_features, clf, test_features, k, gamma, alpha):
+    num_classes = clf.shape[0]
+
+    # Get Linv
+    L_inv = get_Linv(unlabeled_features, clf, k, gamma, alpha)
+
+    # For induction, we need to find the nearest neighbors between test and unlabeled features and class labels
+    test_knn, test_sim = get_neighbors_for_inductive(unlabeled_features, clf, test_features, k, gamma)
+
+    Linv_sparse = np.zeros_like(L_inv)
+    top = np.argmax(L_inv, axis=1, keepdims=True)
+    np.put_along_axis(Linv_sparse, top, np.take_along_axis(L_inv, top, axis=1), axis=1)
+    L_inv_sparse = csr_matrix(Linv_sparse)
+
+    # scores for unlabeled features
+    # below block of code is given from original implementation due to complexity
+    scores = np.zeros((unlabeled_features.shape[0], num_classes))
+    for idx, (k, s) in enumerate(zip(test_knn, test_sim)):
+        Z = (Linv_sparse[k, :]).copy()
+        Z.data = Z.data * s.repeat(np.diff(Z.indptr).get().tolist())
+        scores[idx, :] = Z.sum(axis=0)
+
+    return scores.get()
+
 
 
 if __name__ == '__main__':
