@@ -2,6 +2,38 @@ import faiss
 import numpy as np
 import torch
 import torch.nn.functional as F
+from scipy import sparse
+
+# test imports
+from scipy.sparse import csr_matrix, diags
+
+def knn_to_laplacian(knn, sim, alpha=0.99):
+    # k*N matrix of row indices
+    N, k = knn.shape
+    row_idx_rep = np.arange(N).repeat(k).T
+
+    # flatten knn, sim, and row_idx_rep
+    knn = knn.flatten("F")
+    sim = sim.flatten("F")
+    row_idx_rep = row_idx_rep.flatten("F")
+
+    # filter out -1 indices
+    knn = knn[knn != -1]
+    row_idx_rep = row_idx_rep[knn != -1]
+    sim = sim[knn != -1]
+
+    # Sparsify matrix into adjacency matrix W
+    W = csr_matrix((sim, (row_idx_rep, knn)), shape=(N, N))
+
+    # Because W is square, we can add the transpose to get the full adjacency matrix
+    W = W + W.T
+    W_norm = normalize_connection_graph(W)
+
+    # Construct Laplacian matrix (L = I - alpha * W_norm) where alpha is a hyperparameter
+    L = sparse.eye(N) - alpha * W_norm
+    return L
+
+
 
 def search_faiss(X, Q, k):
     # X is the dataset, Q is the query set, k is the number of nearest neighbors to retrieve
@@ -110,6 +142,37 @@ def voc_mAP(img_cls, num_classes):
         
         return mAP
 
+# Normalize Connection Graph
+#  We use symmetric normalization to normalize the connection (adjacency) graph as defined:
+#     norm(G) = D^(-1/2) * G * D^(-1/2)
+#  where D = diag(G1 + G2 + ... + Gn) is the degree matrix for each degree of the graph
+#  and G (graph) is the adjacency matrix of the graph
+def normalize_connection_graph(graph):
+    # Authors of ZLaP convert matrices to Compressed Sparse Row format for faster computation
+    graph = csr_matrix(graph)
 
+    # Because we only care about non-self connections, we may remove all diagonal entries
+    graph = graph - sparse.diags(graph.diagonal())
 
-    
+    # We then construct the degree vector. `graph` is an adjacency matrix so we can sum along the columns
+    degree_vec = np.array(graph.sum(axis=1))
+    assert degree_vec.shape == (graph.shape[0], 1)
+    degree_vec[degree_vec == 0] = 1 # Avoid division by zero
+    assert(not any(degree_vec < 0)) # Degree vector should not contain negative values
+
+    # We then compute the inverse of the square root of the degree vector and add each entry to the diagonal matrix
+    # This is faster than computing the inverse of the degree matrix
+    degree_vec_inv_sqrt = np.power(degree_vec, -0.5)
+
+    # Make inv_sqrt vector into diagonal matrix
+    degree_inv_sqrt_diag = sparse.diags(degree_vec_inv_sqrt.flatten())
+
+    # Conduct symmetric normalization
+    graph_normalized = degree_inv_sqrt_diag @ graph @ degree_inv_sqrt_diag
+    return graph_normalized
+
+# Used in transductive inference, we solve linear system Lx=Y via conjugate gradient method
+# L is the Laplacian matrix and Y is the target matrix
+def conj_gradsearch(L, Y, tol=1e-6, maxiter=50):
+    x, _ = sparse.linalg.cg(L, Y, tol=tol, maxiter=maxiter)
+    return np.asnumpy(x)

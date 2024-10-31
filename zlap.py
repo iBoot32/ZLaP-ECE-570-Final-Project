@@ -51,6 +51,13 @@ if __name__ == '__main__':
     k = args.k
     mode = args.mode
 
+    print(f'  [*] Running ZLaP in {mode} mode with k={k}')
+
+
+
+    
+
+
     # Load data
     try:
         data = get_data()
