@@ -60,8 +60,8 @@ def create_separate_graph(features, clf, k):
     # We now init knn for knn to -1 as a placeholder since we not valid, and sim to 0
     knn_text = np.full((num_classes, knn.shape[1]), -1)
     sim_text = np.zeros((num_classes, sim.shape[1]))
-    knn = np.concatenate((knn, knn_text), axis=0)
-    sim = np.concatenate((sim, sim_text), axis=0)
+    knn = np.concatenate((knn_text, knn), axis=0)
+    sim = np.concatenate((sim_text, sim), axis=0)
 
     return knn, sim
 
@@ -180,6 +180,28 @@ def do_sparse_inductive_lp(unlabeled_features, clf, test_features, k, gamma, alp
 
     return scores
 
+def find_optimal_params(features, clf, test_features, test_targets, mode, clf_type, k_params, gamma_params, alpha_params):
+    min_k, max_k, k_step = k_params
+    min_gamma, max_gamma, gamma_step = gamma_params
+    min_alpha, max_alpha, alpha_step = alpha_params
+    done = 0
+
+    highest_acc = [0, 0, 0, 0]
+    for k in range(min_k, max_k, k_step):
+        for gamma in np.arange(min_gamma, max_gamma, gamma_step):
+            for alpha in np.arange(min_alpha, max_alpha, alpha_step):
+                scores = do_transductive_lp(test_features, clf_to_use, k, gamma, alpha)
+
+                acc = accuracy(scores, test_targets)
+                # find percent complete
+                total = (max_k - min_k)/k_step * (max_gamma - min_gamma)/gamma_step * (max_alpha - min_alpha)/alpha_step
+                print(f"[Searching% = {100 * done/total:.2f}%] k={k}, gamma={gamma}, alpha={alpha}, acc={acc:.2f}%")
+                if acc > highest_acc[0]:
+                    highest_acc = [acc, k, gamma, alpha]
+                done += 1
+
+    print(f"Best accuracy: {highest_acc[0]:.2f}% with k={highest_acc[1]}, gamma={highest_acc[2]}, alpha={highest_acc[3]}")
+    return highest_acc[1:]
 
 
 if __name__ == '__main__':
@@ -232,7 +254,10 @@ if __name__ == '__main__':
         elif args.clf_type == "cupl-proxy":
             clf_to_use = clf_cupl_image_test
 
-        scores = do_transductive_lp(test_features, clf_to_use, args.k, args.gamma, args.alpha)
+        # loop and try all valid combos of k, gamma, and alpha
+        op_k, op_gamma, op_alpha = find_optimal_params(train_features, clf_to_use, test_features, test_targets, mode, clf_type, k_params=(1, 20, 1), gamma_params=(1, 20, 1), alpha_params=(0.1, 1, 0.1))
+
+        scores = do_transductive_lp(test_features, clf_to_use, op_k, op_gamma, op_alpha)
 
     # if we are doing inductive:
     elif args.mode == "inductive":

@@ -6,10 +6,7 @@ from scipy.sparse import csr_matrix, diags
 
 
 def search_faiss(X, Q, k):
-    res = faiss.StandardGpuResources()
-    res.setDefaultNullStreamAllDevices()
-    res.setTempMemory(0)
-    s, knn = faiss.knn_gpu(res, Q, X, k, metric=faiss.METRIC_INNER_PRODUCT)
+    s, knn = faiss.knn(Q, X, k, metric=faiss.METRIC_INNER_PRODUCT)
 
     return knn, s
 

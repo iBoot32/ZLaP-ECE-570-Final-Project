@@ -31,6 +31,6 @@ I created a plan/order for function implementation based on their simplicity and
 |                    | do_inductive_lp                 | ✔️         | Oct 31, 2024             |
 |                    | get_Linv                        | ✔️         | Oct 31, 2024            |
 |                    | do_sparse_inductive_lp          | ✔️         | Oct 31, 2024            |
-|                    | main                            | ⬜         |                         |
+|                    | main                            | ✔️         | Oct 31, 2024             |
 | **Expansions**     | Train on custom data            | ⬜         |                         |
 |                    | Evaluate on retail data         | ⬜         |                         |

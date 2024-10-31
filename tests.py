@@ -105,7 +105,101 @@ def test_knn_to_laplacian(n=5):
 
     return all_tests_passed  # Return the overall test result
 
+def test_create_separate_graph():
+    # read data
+    (
+        train_features,
+        train_targets,
+        val_features,
+        val_targets,
+        test_features,
+        test_targets,
+        clf_text,
+        clf_image_train,
+        clf_image_val,
+        clf_image_test,
+        clf_cupl_text,
+        clf_cupl_image_train,
+        clf_cupl_image_val,
+        clf_cupl_image_test
+    ) = get_data()
+
+    # Create separate graphs
+    knn1, sim1 = create_separate_graph(train_features, clf_text, 5)
+    knn2, sim2 = their_zlap.create_separate_graph(train_features, clf_text, 5)
+
+    # Compare the outputs
+    print("KNN 1 shape:", knn1.shape)
+    print("KNN 2 shape:", knn2.shape)
+    print("Similarity 1 shape:", sim1.shape)
+    print("Similarity 2 shape:", sim2.shape)
+
+    # Check if outputs are close
+    if not np.allclose(knn1, knn2) or not np.allclose(sim1, sim2) or not knn1.shape == knn2.shape or not sim1.shape == sim2.shape:
+        print(f"    - Test failed: KNN and similarity scores are not close!")
+        return False
+    return True
+
+def test_knn_to_laplacian():
+        # read data
+    (
+        train_features,
+        train_targets,
+        val_features,
+        val_targets,
+        test_features,
+        test_targets,
+        clf_text,
+        clf_image_train,
+        clf_image_val,
+        clf_image_test,
+        clf_cupl_text,
+        clf_cupl_image_train,
+        clf_cupl_image_val,
+        clf_cupl_image_test
+    ) = get_data()
+
+    # Create separate graphs
+    knn1, sim1 = create_separate_graph(train_features, clf_text, 5)
+    knn2, sim2 = their_zlap.create_separate_graph(train_features, clf_text, 5)
+
+    features = train_features
+    clf = clf_text
+    gamma = 0.5
+
+    num_classes = clf.shape[0]
+    sim1[knn1 < num_classes] = sim1[knn1 < num_classes] ** gamma
+    laplacian = knn_to_laplacian(knn1, sim1, num_classes)
+
+    sim2[knn2 < num_classes] = sim2[knn2 < num_classes] ** gamma
+    laplacian2 = their_zlap.knn2laplacian(knn2, sim2, num_classes)
+
+    # Compare the outputs
+    print("Laplacian 1 shape:", laplacian.shape)
+    print("Laplacian 2 shape:", laplacian2.shape)
+
+    # compare csr matrix
+    if not csr_matrices_are_similar(laplacian, laplacian2):
+        print(f"    - Test failed: Laplacians are not similar!")
+        return False
+    return True
+
+def csr_matrices_are_similar(csr_matrix1, csr_matrix2, tolerance=1e-9):
+    # Step 1: Check if shapes match
+    if csr_matrix1.shape != csr_matrix2.shape:
+        return False
+    if csr_matrix1.data.shape != csr_matrix2.data.shape:
+        return False
+
+    # Step 2: Check data, indices, and indptr
+    data_similar = np.allclose(csr_matrix1.data, csr_matrix2.data, atol=tolerance)
+    
+    return data_similar 
+
+
 
 if __name__ == '__main__':
     check(test_graph_norm)()
     # check(test_knn_to_laplacian)()
+    check(test_create_separate_graph)()
+    check(test_knn_to_laplacian)()

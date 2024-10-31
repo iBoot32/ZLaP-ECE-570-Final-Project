@@ -7,33 +7,35 @@ from scipy import sparse
 # test imports
 from scipy.sparse import csr_matrix, diags
 
-def knn_to_laplacian(knn, sim, alpha=0.99):
-    # k*N matrix of row indices
+def knn_to_laplacian(knn, s, alpha=0.99):
+    # Extract dimensions
     N, k = knn.shape
-    row_idx_rep = np.arange(N).repeat(k).T
 
-    # flatten knn, sim, and row_idx_rep
-    knn = knn.flatten("F")
-    sim = sim.flatten("F")
-    row_idx_rep = row_idx_rep.flatten("F")
+    # Create row indices repeated k times
+    row_idx = np.arange(N)
+    row_idx_rep = np.tile(row_idx, (k, 1)).T
 
-    # filter out -1 indices
-    knn = np.where(knn != -1, knn, 0)
+    # Flatten arrays column-wise
+    knn_flat = knn.flatten("F")
+    row_idx_rep_flat = row_idx_rep.flatten("F")
+    sim_flat = s.flatten("F")
 
-    row_idx_rep = row_idx_rep[knn != -1]
-    sim = sim[knn != -1]
+    # Filter out invalid entries
+    valid_knn = np.where(knn_flat != -1)[0]
+    knn_flat = knn_flat[valid_knn]
+    row_idx_rep_flat = row_idx_rep_flat[valid_knn]
+    sim_flat = sim_flat[valid_knn]
 
-    # Sparsify matrix into adjacency matrix W
-    W = csr_matrix((sim, (row_idx_rep, knn)), shape=(N, N))
+    # Create sparse adjacency matrix W
+    W = csr_matrix((sim_flat, (row_idx_rep_flat, knn_flat)), shape=(N, N))
+    W = W + W.T  # Make W symmetric
 
-    # Because W is square, we can add the transpose to get the full adjacency matrix
-    W = W + W.T
-    W_norm = normalize_connection_graph(W)
+    # Normalize W to create Wn
+    Wn = normalize_connection_graph(W)
 
-    # Construct Laplacian matrix (L = I - alpha * W_norm) where alpha is a hyperparameter
-    L = sparse.eye(N) - alpha * W_norm
+    # Construct Laplacian matrix L
+    L = np.eye(Wn.shape[0]) - alpha * Wn
     return L
-
 
 
 def search_faiss(X, Q, k):
