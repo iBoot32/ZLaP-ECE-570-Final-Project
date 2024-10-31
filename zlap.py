@@ -65,6 +65,49 @@ def create_separate_graph(features, clf, k):
 
     return knn, sim
 
+def do_transductive_lp(features, clf, k, gamma, alpha, scale_sim=False):
+    # Create knn and similarity graph for the image and text data
+    num_classes = clf.shape[0]
+    knn, sim = create_separate_graph(features, clf, k)
+
+    # We then filter for entries in the knn which point to a class, and scale by gamma
+    sim[knn < num_classes] = sim[knn < num_classes] ** gamma
+
+    # Turn KNN into laplacian matrix for label propagation
+    laplacian = knn_to_laplacian(knn, sim, num_classes)
+
+    # Perform label propagation by solving the linear system via conjugate gradient method
+    scores = np.zeros((features.shape[0], num_classes)) # shape (N, num_classes)
+    for i in range(num_classes):
+        # one-hot encoding where the ith class is 1, then solve for the ith class
+        Y = np.zeros((laplacian.shape[0],))
+        Y[i] = 1 
+        x = conj_gradsearch(laplacian, Y)
+
+        # store results in correct column for class i
+        scores[:, i] = x[num_classes:]
+
+# find nearest neighbors between test and unlabeled features and class labels
+def get_neighbors_for_inductive(unlabeled_features, clf, test_features, k, gamma, scale_sim=False, xmin=None, xmax=None):
+    num_classes = clf.shape[0]
+
+    # searches using faiss (im2im and im2text)
+    knn_im2im, sim_im2im     = search_faiss(unlabeled_features, unlabeled_features, k=min(k, unlabeled_features.shape[0]))
+    knn_im2text, sim_im2text = search_faiss(unlabeled_features, clf, k=min(k, num_classes))
+
+    # remove entries < 0 
+    sim_im2im = np.maximum(sim_im2im, 0)
+    sim_im2text = np.maximum(sim_im2text, 0)
+
+    # index shift for im2im and gamma scaling for im2text
+    knn_im2im += num_classes
+    sim_im2text = sim_im2text ** gamma
+
+    # combine the knn and sim
+    test_knn = np.concatenate((knn_im2im, knn_im2text), axis=1)
+    test_sim = np.concatenate((sim_im2im, sim_im2text), axis=1)
+    return test_knn, test_sim
+
 
 if __name__ == '__main__':
     parser = ArgumentParser(description='ZLAP')

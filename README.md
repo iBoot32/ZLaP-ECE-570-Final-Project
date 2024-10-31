@@ -25,9 +25,9 @@ I created a plan/order for function implementation based on their simplicity and
 |                    | dfs                             | ✔️         | Oct 30, 2024         |
 | **Main Functions** | get_args                        | ✔️         | Oct 29, 2024            |
 |                    | combine_separate_knns           | ✔️         | Oct 29, 2024            |
-|                    | create_separate_graph           | ⬜         |                         |
-|                    | do_transductive_lp              | ⬜         |                         |
-|                    | get_neighbors_for_inductive     | ⬜         |                         |
+|                    | create_separate_graph           | ✔️         | Oct 31, 2024               |
+|                    | do_transductive_lp              | ✔️         | Oct 31, 2024               |
+|                    | get_neighbors_for_inductive     | ✔️        | Oct 31, 2024           |
 |                    | do_inductive_lp                 | ⬜         |                         |
 |                    | get_Linv                        | ⬜         |                         |
 |                    | do_sparse_inductive_lp          | ⬜         |                         |
