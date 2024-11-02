@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from scipy.sparse import csr_matrix, diags
+from scipy import sparse
 
 
 def search_faiss(X, Q, k):
@@ -47,9 +48,9 @@ def knn2laplacian(knn, s, alpha=0.99):
 
 
 def dfs_search(L, Y, tol=1e-6, maxiter=50, cast_to_numpy=True):
-    out = s_linalg.cg(L, Y, tol=tol, maxiter=maxiter)[0]
+    out = sparse.linalg.cg(L, Y, tol=tol, maxiter=maxiter)
     if cast_to_numpy:
-        return cp.asnumpy(out)
+        return np.asnumpy(out)
     else:
         return out
 

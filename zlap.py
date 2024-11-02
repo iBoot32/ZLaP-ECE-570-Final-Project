@@ -255,7 +255,7 @@ if __name__ == '__main__':
             clf_to_use = clf_cupl_image_test
 
         # loop and try all valid combos of k, gamma, and alpha
-        op_k, op_gamma, op_alpha = find_optimal_params(train_features, clf_to_use, test_features, test_targets, mode, clf_type, k_params=(1, 20, 1), gamma_params=(1, 20, 1), alpha_params=(0.1, 1, 0.1))
+        op_k, op_gamma, op_alpha = find_optimal_params(train_features, clf_to_use, test_features, test_targets, mode, clf_type, k_params=(2, 20, 1), gamma_params=(1, 20, 1), alpha_params=(0.1, 1, 0.1))
 
         scores = do_transductive_lp(test_features, clf_to_use, op_k, op_gamma, op_alpha)
 

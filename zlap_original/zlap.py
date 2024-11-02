@@ -3,8 +3,8 @@ from argparse import ArgumentParser
 import numpy as np
 
 # modified imports
-from zlap_original.utils import accuracy, dfs_search, get_data, knn2laplacian, search_faiss, voc_mAP
-
+from ut import accuracy, get_data, search_faiss, dfs_search, knn2laplacian, voc_mAP
+from scipy.sparse import csr_matrix
 
 def combine_separate_knns(
     knn_im2im,
@@ -65,9 +65,9 @@ def do_transductive_lp(features, clf, k, gamma, alpha, scale_sim=False):
     sim[mask_knn] = sim[mask_knn] ** gamma
     L = knn2laplacian(knn, sim, alpha)
 
-    scores = cp.zeros((features.shape[0], num_classes))
+    scores = np.zeros((features.shape[0], num_classes))
     for idx in range(num_classes):
-        Y = cp.zeros((L.shape[0],))
+        Y = np.zeros((L.shape[0],))
         Y[idx] = 1
         out = dfs_search(L, Y, cast_to_numpy=False)
         scores[:, idx] = out[num_classes:]
@@ -145,9 +145,9 @@ def do_inductive_lp(
         xmax=xmax,
     )
 
-    scores = cp.zeros((test_features.shape[0], num_classes))
+    scores = np.zeros((test_features.shape[0], num_classes))
     for idx, (k, s) in enumerate(zip(test_knn, test_sim)):
-        Y = cp.zeros((L.shape[0],))
+        Y = np.zeros((L.shape[0],))
         Y[k] = s
         out = dfs_search(L, Y, cast_to_numpy=False)
         scores[idx, :] = out[:num_classes]
@@ -171,9 +171,9 @@ def get_Linv(features, clf, k, gamma, alpha, scale_sim=False):
     sim[mask_knn] = sim[mask_knn] ** gamma
     L = knn2laplacian(knn, sim, alpha)
 
-    scores = cp.zeros((num_classes + features.shape[0], num_classes))
+    scores = np.zeros((num_classes + features.shape[0], num_classes))
     for idx in range(num_classes):
-        Y = cp.zeros((L.shape[0],))
+        Y = np.zeros((L.shape[0],))
         Y[idx] = 1
         out = dfs_search(L, Y, cast_to_numpy=False)
         scores[:, idx] = out.copy()
@@ -205,18 +205,18 @@ def do_sparse_inductive_lp(
         xmin=xmin,
         xmax=xmax,
     )
-    test_knn = cp.array(test_knn)
-    test_sim = cp.array(test_sim)
+    test_knn = np.array(test_knn)
+    test_sim = np.array(test_sim)
 
     Linv_sparse = np.zeros_like(Linv)
     top = np.argmax(Linv, axis=1, keepdims=True)
     np.put_along_axis(Linv_sparse, top, np.take_along_axis(Linv, top, axis=1), axis=1)
-    Linv_sparse = csr_matrix(cp.array(Linv_sparse))
+    Linv_sparse = csr_matrix(np.array(Linv_sparse))
 
-    scores = cp.zeros((test_features.shape[0], num_classes))
+    scores = np.zeros((test_features.shape[0], num_classes))
     for idx, (k, s) in enumerate(zip(test_knn, test_sim)):
         Z = (Linv_sparse[k, :]).copy()
-        Z.data = Z.data * s.repeat(cp.diff(Z.indptr).get().tolist())
+        Z.data = Z.data * s.repeat(np.diff(Z.indptr).get().tolist())
         scores[idx, :] = Z.sum(axis=0)
 
     return scores.get()

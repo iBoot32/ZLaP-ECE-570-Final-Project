@@ -196,6 +196,48 @@ def csr_matrices_are_similar(csr_matrix1, csr_matrix2, tolerance=1e-9):
     
     return data_similar 
 
+def setup_for_get_neighbors(unlabeled_features, clf, k, gamma, alpha, scale_sim=False):
+    num_classes = clf.shape[0]
+    knn, sim = create_separate_graph(unlabeled_features, clf, k)
+
+    xmin = None
+    xmax = None
+    if scale_sim:
+        xmin = np.min(sim[knn != -1])
+        xmax = np.max(sim[knn != -1])
+        sim = (sim - xmin) / (xmax - xmin)
+    sim[sim < 0] = 0
+
+    mask_knn = knn < num_classes
+    sim[mask_knn] = sim[mask_knn] ** gamma
+    L = knn_to_laplacian(knn, sim, alpha)
+
+    return knn, sim, L
+
+
+def test_get_neighbors_for_inductive():
+    # read data
+    (
+        train_features,
+        train_targets,
+        val_features,
+        val_targets,
+        test_features,
+        test_targets,
+        clf_text,
+        clf_image_train,
+        clf_image_val,
+        clf_image_test,
+        clf_cupl_text,
+        clf_cupl_image_train,
+        clf_cupl_image_val,
+        clf_cupl_image_test
+    ) = get_data()
+
+    knn, sim, L = setup_for_get_neighbors(test_features, clf_text, 5, 0.5, 0.1, scale_sim=False)
+
+    
+
 
 
 if __name__ == '__main__':
